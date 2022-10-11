@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { addTask, getTasks, toggleComplete } from '../../firebase/tasksController';
+import { async } from '@firebase/util';
 
 /**
  * Componente que gestiona la lista de tareas
@@ -11,6 +13,12 @@ const TaskList = ({ showSettings, setShowSettings }) => {
     const [newTask, setNewTask] = useState('');
     const [Tasklist, setTasklist] = useState([]);
 
+    useEffect(() => {
+        getTasks()
+            .then(tasks => setTasklist([...tasks]))
+            .catch(e => console.error(e))
+    }, []);
+
     /**
    * Añade una nueva tarea a la lista de tareas
    * v2: La nueva tarea se añade como un objeto
@@ -19,9 +27,20 @@ const TaskList = ({ showSettings, setShowSettings }) => {
 
     const addNewTask = () => {
         if (newTask === "") return;
-        setTasklist([...Tasklist, { task: newTask, completed: false }]);
-        setNewTask('');
-        return true;
+        // Vamos a añadir una nueva tarea a la base de datos
+        const task = { task: newTask, completed: false }
+        addTask(task)
+            .then(() => {
+                // Cuando se haya añadido -> Mostraremos todas dentro del estado tasklist
+                return setTasklist([...Tasklist, task]);
+            })
+            .catch(e => console.error(e))
+            .finally(() => setNewTask(""));
+        
+
+        // setTasklist([...Tasklist, { task: newTask, completed: false }]);
+        // setNewTask('');
+        // return true;
     };
 
     /**
@@ -51,9 +70,21 @@ const TaskList = ({ showSettings, setShowSettings }) => {
      * @param {*} index
      */
     const toggleCompletedItem = (index) => {
-    const newTaskList = Tasklist;
-    newTaskList[index].completed = !newTaskList[index].completed;
-    setTasklist([...newTaskList]);
+    // const newTaskList = Tasklist;
+    let task = Tasklist.find(t => t.id === index);
+    // Actualizar en la base de datos el estado de la tarea
+    toggleComplete(task)
+    .then(async() => {
+        // Cuando se haya añadido -> Mostraremos todas dentro del estado tasklist
+        const newTaskList = await getTasks();
+        return setTasklist([
+            ...newTaskList, ]);
+    })
+    .catch(e => console.error(e))
+    // Cuando se haya actualizado -> Mostraremos todas las tareas dentro del estado tasklist
+
+    // newTaskList[index].completed = !newTaskList[index].completed;
+    // setTasklist([...newTaskList]);
     };
 
     /**
@@ -66,7 +97,7 @@ const TaskList = ({ showSettings, setShowSettings }) => {
     <div>
     <header className="flex justify-between">
         <h1 className="text-3xl text-sky-700 font-semibold dark:text-sky-300">
-        Task List - hosted on: Firebase</h1>
+        Task List v2 - hosted on: Firebase</h1>
         <motion.button whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         className="btn" onClick={() => setShowSettings(!showSettings)}>
@@ -92,11 +123,11 @@ const TaskList = ({ showSettings, setShowSettings }) => {
             <ul>
                 {Tasklist.map((item, index) => (
                 <motion.li initial={{ x: '100vw' }} animate={{ x: 0 }} key={index}>
-                <label>
+                <label className='cursor-pointer'>
                     <input
                     type="checkbox"
                       // onClick={() => removeItem(index)}
-                    onClick={() => toggleCompletedItem(index)}
+                    onClick={() => toggleCompletedItem(item.id)}
                     checked={item.completed}
                     onChange={() => {}}
                     />
